@@ -1,0 +1,13 @@
+evaluation:
+  agent: SUPPLY_CHAIN_DEMO.CORE.SUPPLY_CHAIN_AGENT
+  agent_version: LIVE
+  dataset_fqn: SUPPLY_CHAIN_DEMO.CORE.supply_chain_agent_eval_20261003_090811
+metrics:
+  - name: answer_correctness
+    version: v1_0
+  - name: logical_consistency
+    version: v1_0
+  - name: tool_selection_accuracy
+    version: v1_0
+  - name: tool_execution_accuracy
+    version: v1_0

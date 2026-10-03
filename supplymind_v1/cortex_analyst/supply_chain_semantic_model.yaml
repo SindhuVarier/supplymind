@@ -1,0 +1,403 @@
+# ==============================================================================
+# Cortex Analyst Semantic Model: Automotive Supply Chain Ontology
+#
+# Entities: Supplier, Part, Plant, Shipment, Order, Customer.
+#
+# Design note on metrics: each top-level metric below queries a governed
+# Semantic View via SEMANTIC_VIEW(...) rather than aggregating base tables
+# directly, so Cortex Analyst inherits the exact same definition that
+# Planner / Procurement / Logistics would get from any other consumer of
+# that view (see semantic_views/sem_on_time_delivery.sql for the OTD one).
+#
+# STATUS: all 5 semantic views now exist under semantic_views/ --
+# sem_on_time_delivery, sem_fill_rate, sem_otif, sem_days_of_inventory,
+# sem_landed_cost -- and all 5 metrics below resolve against them.
+#
+# Customer note: part 1's data generator only produces an ORDERS CSV, not a
+# standalone CUSTOMERS table, so the "Customer" entity is modeled here as
+# dimensions (customer_id, customer_name) on the `order` logical table rather
+# than a fabricated base table.
+# ==============================================================================
+
+name: supply_chain_ontology
+description: >
+  Automotive supply chain ontology covering suppliers, parts, plants,
+  shipments, and orders (with customers as order-level attributes).
+  Backs Cortex Analyst natural-language queries across Planner,
+  Procurement, and Logistics personas.
+
+tables:
+  - name: supplier
+    description: A company that supplies parts.
+    base_table:
+      database: SUPPLY_CHAIN_DEMO
+      schema: CORE
+      table: SUPPLIERS
+    primary_key:
+      columns: [supplier_id]
+    dimensions:
+      - name: supplier_id
+        expr: supplier_id
+        data_type: VARCHAR
+        description: Unique supplier identifier.
+      - name: supplier_name
+        expr: supplier_name
+        data_type: VARCHAR
+        description: Supplier display name.
+        synonyms: ["vendor", "vendor name"]
+      - name: supplier_region
+        expr: supplier_region
+        data_type: VARCHAR
+        description: Region the supplier operates from.
+      - name: country
+        expr: country
+        data_type: VARCHAR
+        description: Supplier's home country.
+      - name: reliability_tier
+        expr: reliability_tier
+        data_type: VARCHAR
+        description: Gold / Silver / Bronze reliability classification.
+    measures:
+      - name: otd_target_pct
+        expr: otd_target_pct
+        data_type: NUMBER
+        default_aggregation: avg
+        description: Supplier's contracted/target on-time delivery percentage.
+      - name: lead_time_days_avg
+        expr: lead_time_days_avg
+        data_type: NUMBER
+        default_aggregation: avg
+        description: Average quoted lead time in days.
+
+  - name: part
+    description: A component purchased from a supplier.
+    base_table:
+      database: SUPPLY_CHAIN_DEMO
+      schema: CORE
+      table: PARTS
+    primary_key:
+      columns: [part_id]
+    dimensions:
+      - name: part_id
+        expr: part_id
+        data_type: VARCHAR
+        description: Unique part identifier.
+      - name: part_name
+        expr: part_name
+        data_type: VARCHAR
+        description: Part display name.
+      - name: part_category
+        expr: part_category
+        data_type: VARCHAR
+        description: Part category, e.g. Engine, Brakes, Electrical.
+      - name: supplier_id
+        expr: supplier_id
+        data_type: VARCHAR
+        description: Supplier that produces this part.
+    measures:
+      - name: unit_cost
+        expr: unit_cost
+        data_type: NUMBER
+        default_aggregation: avg
+        description: Supplier's unit cost for the part.
+      - name: weight_kg
+        expr: weight_kg
+        data_type: NUMBER
+        default_aggregation: avg
+        description: Part weight in kilograms.
+
+  - name: plant
+    description: A manufacturing / assembly plant that receives parts and fulfills orders.
+    base_table:
+      database: SUPPLY_CHAIN_DEMO
+      schema: CORE
+      table: PLANTS
+    primary_key:
+      columns: [plant_id]
+    dimensions:
+      - name: plant_id
+        expr: plant_id
+        data_type: VARCHAR
+        description: Unique plant identifier.
+      - name: plant_name
+        expr: plant_name
+        data_type: VARCHAR
+        description: Plant display name.
+      - name: plant_region
+        expr: plant_region
+        data_type: VARCHAR
+        description: Region the plant is located in.
+        synonyms: ["region"]
+      - name: plant_country
+        expr: plant_country
+        data_type: VARCHAR
+        description: Country the plant is located in.
+
+  - name: shipment
+    description: A shipment of parts from a supplier to a plant.
+    base_table:
+      database: SUPPLY_CHAIN_DEMO
+      schema: CORE
+      table: SHIPMENTS
+    primary_key:
+      columns: [shipment_id]
+    dimensions:
+      - name: shipment_id
+        expr: shipment_id
+        data_type: VARCHAR
+        description: Unique shipment identifier.
+      - name: supplier_id
+        expr: supplier_id
+        data_type: VARCHAR
+        description: Supplier that sent the shipment.
+      - name: part_id
+        expr: part_id
+        data_type: VARCHAR
+        description: Part contained in the shipment.
+      - name: plant_id
+        expr: plant_id
+        data_type: VARCHAR
+        description: Receiving plant.
+      - name: carrier
+        expr: carrier
+        data_type: VARCHAR
+        description: Freight carrier used.
+        synonyms: ["logistics provider"]
+      - name: status
+        expr: status
+        data_type: VARCHAR
+        description: Shipment status (Delivered, In Transit, Delayed).
+    time_dimensions:
+      - name: ship_dt
+        expr: ship_dt
+        data_type: DATE
+        description: Date the shipment left the supplier.
+      - name: confirmed_delivery_dt
+        expr: confirmed_delivery_dt
+        data_type: DATE
+        description: Delivery date confirmed at ship time.
+      - name: actual_delivery_dt
+        expr: actual_delivery_dt
+        data_type: DATE
+        description: Date the shipment actually arrived.
+    measures:
+      - name: quantity_shipped
+        expr: quantity_shipped
+        data_type: NUMBER
+        default_aggregation: sum
+        description: Units shipped.
+      - name: freight_cost_per_unit
+        expr: freight_cost_per_unit
+        data_type: NUMBER
+        default_aggregation: avg
+        description: Freight cost per unit for this shipment.
+      - name: duty_cost_per_unit
+        expr: duty_cost_per_unit
+        data_type: NUMBER
+        default_aggregation: avg
+        description: Duty cost per unit for this shipment.
+
+  - name: inventory_snapshot
+    description: A monthly on-hand inventory reading for a (part, plant) combination.
+    base_table:
+      database: SUPPLY_CHAIN_DEMO
+      schema: CORE
+      table: INVENTORY_SNAPSHOTS
+    primary_key:
+      columns: [snapshot_id]
+    dimensions:
+      - name: snapshot_id
+        expr: snapshot_id
+        data_type: VARCHAR
+        description: Unique snapshot identifier.
+      - name: part_id
+        expr: part_id
+        data_type: VARCHAR
+        description: Part this snapshot measures.
+      - name: plant_id
+        expr: plant_id
+        data_type: VARCHAR
+        description: Plant this snapshot measures.
+    time_dimensions:
+      - name: snapshot_dt
+        expr: snapshot_dt
+        data_type: DATE
+        description: Date of the inventory snapshot.
+    measures:
+      - name: qty_on_hand
+        expr: qty_on_hand
+        data_type: NUMBER
+        default_aggregation: avg
+        description: On-hand quantity at the snapshot date.
+      - name: avg_daily_demand_qty
+        expr: avg_daily_demand_qty
+        data_type: NUMBER
+        default_aggregation: avg
+        description: Average daily demand quantity for this part/plant, as of the snapshot date.
+
+  - name: order
+    description: A customer order for a part, fulfilled from a plant. Customer attributes live on this table (see note at top of file).
+    base_table:
+      database: SUPPLY_CHAIN_DEMO
+      schema: CORE
+      table: ORDERS
+    primary_key:
+      columns: [order_id]
+    dimensions:
+      - name: order_id
+        expr: order_id
+        data_type: VARCHAR
+        description: Unique order identifier.
+      - name: customer_id
+        expr: customer_id
+        data_type: VARCHAR
+        description: Customer entity -- identifier. Modeled as an order attribute, not a separate table.
+      - name: customer_name
+        expr: customer_name
+        data_type: VARCHAR
+        description: Customer entity -- display name. Modeled as an order attribute, not a separate table.
+        synonyms: ["customer"]
+      - name: plant_id
+        expr: plant_id
+        data_type: VARCHAR
+        description: Fulfilling plant.
+      - name: part_id
+        expr: part_id
+        data_type: VARCHAR
+        description: Part ordered.
+      - name: order_status
+        expr: order_status
+        data_type: VARCHAR
+        description: Fulfilled / Partially Fulfilled / Backordered.
+    time_dimensions:
+      - name: order_dt
+        expr: order_dt
+        data_type: DATE
+        description: Date the order was placed.
+      - name: requested_delivery_dt
+        expr: requested_delivery_dt
+        data_type: DATE
+        description: Customer-requested delivery date.
+      - name: fulfilled_dt
+        expr: fulfilled_dt
+        data_type: DATE
+        description: Date the order was actually fulfilled.
+    measures:
+      - name: quantity_ordered
+        expr: quantity_ordered
+        data_type: NUMBER
+        default_aggregation: sum
+        description: Units ordered.
+      - name: quantity_fulfilled
+        expr: quantity_fulfilled
+        data_type: NUMBER
+        default_aggregation: sum
+        description: Units actually fulfilled.
+      - name: unit_price
+        expr: unit_price
+        data_type: NUMBER
+        default_aggregation: avg
+        description: Price charged per unit.
+
+relationships:
+  - name: shipment_to_supplier
+    left_table: shipment
+    right_table: supplier
+    join_type: left_outer
+    relationship_columns:
+      - left_column: supplier_id
+        right_column: supplier_id
+  - name: shipment_to_plant
+    left_table: shipment
+    right_table: plant
+    join_type: left_outer
+    relationship_columns:
+      - left_column: plant_id
+        right_column: plant_id
+  - name: shipment_to_part
+    left_table: shipment
+    right_table: part
+    join_type: left_outer
+    relationship_columns:
+      - left_column: part_id
+        right_column: part_id
+  - name: order_to_plant
+    left_table: order
+    right_table: plant
+    join_type: left_outer
+    relationship_columns:
+      - left_column: plant_id
+        right_column: plant_id
+  - name: order_to_part
+    left_table: order
+    right_table: part
+    join_type: left_outer
+    relationship_columns:
+      - left_column: part_id
+        right_column: part_id
+  - name: inventory_snapshot_to_part
+    left_table: inventory_snapshot
+    right_table: part
+    join_type: left_outer
+    relationship_columns:
+      - left_column: part_id
+        right_column: part_id
+  - name: inventory_snapshot_to_plant
+    left_table: inventory_snapshot
+    right_table: plant
+    join_type: left_outer
+    relationship_columns:
+      - left_column: plant_id
+        right_column: plant_id
+
+# ------------------------------------------------------------------------------
+# Ontology metrics. Each references its canonical Semantic View rather than
+# aggregating base tables directly -- see semantic_views/*.sql for the
+# governed definition each one resolves against.
+# ------------------------------------------------------------------------------
+metrics:
+  - name: on_time_delivery_pct
+    table: shipment
+    synonyms: ["OTD", "on-time delivery rate", "on-time delivery percentage"]
+    description: >
+      Canonical OTD metric, sourced from the governed Semantic View
+      SUPPLY_CHAIN_DEMO.CORE.sem_on_time_delivery so Planner, Procurement,
+      and Logistics personas always see the same number for the same question.
+    expr: "(SELECT otd_pct FROM SEMANTIC_VIEW(SUPPLY_CHAIN_DEMO.CORE.sem_on_time_delivery METRICS otd_pct))"
+
+  - name: fill_rate_pct
+    table: order
+    synonyms: ["fill rate", "order fill rate"]
+    description: >
+      Fill Rate %, sourced from the governed Semantic View
+      SUPPLY_CHAIN_DEMO.CORE.sem_fill_rate: volume-weighted
+      SUM(quantity_fulfilled) / SUM(quantity_ordered) * 100.
+    expr: "(SELECT fill_rate_pct FROM SEMANTIC_VIEW(SUPPLY_CHAIN_DEMO.CORE.sem_fill_rate METRICS fill_rate_pct))"
+
+  - name: days_of_inventory
+    table: inventory_snapshot
+    synonyms: ["days of inventory", "DOI", "inventory days"]
+    description: >
+      Days of Inventory, sourced from the governed Semantic View
+      SUPPLY_CHAIN_DEMO.CORE.sem_days_of_inventory: AVG(qty_on_hand) /
+      AVG(avg_daily_demand_qty) across the selected inventory snapshots.
+    expr: "(SELECT days_of_inventory FROM SEMANTIC_VIEW(SUPPLY_CHAIN_DEMO.CORE.sem_days_of_inventory METRICS days_of_inventory))"
+
+  - name: landed_cost_per_unit
+    table: shipment
+    synonyms: ["landed cost", "total landed cost"]
+    description: >
+      Landed Cost per unit, sourced from the governed Semantic View
+      SUPPLY_CHAIN_DEMO.CORE.sem_landed_cost: AVG(unit_cost +
+      freight_cost_per_unit + duty_cost_per_unit) across selected shipments.
+    expr: "(SELECT landed_cost_per_unit FROM SEMANTIC_VIEW(SUPPLY_CHAIN_DEMO.CORE.sem_landed_cost METRICS landed_cost_per_unit))"
+
+  - name: otif_pct
+    table: order
+    synonyms: ["OTIF", "on time in full"]
+    description: >
+      On-Time-In-Full %, sourced from the governed Semantic View
+      SUPPLY_CHAIN_DEMO.CORE.sem_otif: percentage of orders delivered both
+      on time (within 1 day of requested_delivery_dt) and in full
+      (quantity_fulfilled >= quantity_ordered).
+    expr: "(SELECT otif_pct FROM SEMANTIC_VIEW(SUPPLY_CHAIN_DEMO.CORE.sem_otif METRICS otif_pct))"

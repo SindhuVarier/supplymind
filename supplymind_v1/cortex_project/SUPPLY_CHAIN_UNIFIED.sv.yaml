@@ -1,0 +1,382 @@
+name: SUPPLY_CHAIN_UNIFIED
+description: 'Unified automotive supply chain ontology covering suppliers, parts, plants, shipments, inventory snapshots,
+  and customer orders. Supports Planner, Procurement, and Logistics personas with 5 canonical KPIs: On-Time Delivery (OTD),
+  Fill Rate, Days of Inventory (DOI), Landed Cost, and OTIF (On-Time-In-Full).'
+tables:
+- name: SUPPLIERS
+  base_table:
+    database: SUPPLY_CHAIN_DEMO
+    schema: CORE
+    table: SUPPLIERS
+  primary_key:
+    columns:
+    - SUPPLIER_ID
+  dimensions:
+  - name: SUPPLIER_ID
+    expr: SUPPLIER_ID
+    data_type: VARCHAR
+  - name: SUPPLIER_NAME
+    expr: SUPPLIER_NAME
+    data_type: VARCHAR
+    synonyms:
+    - vendor
+    - vendor name
+    description: Supplier display name.
+  - name: SUPPLIER_REGION
+    expr: SUPPLIER_REGION
+    data_type: VARCHAR
+  - name: COUNTRY
+    expr: COUNTRY
+    data_type: VARCHAR
+  - name: RELIABILITY_TIER
+    expr: RELIABILITY_TIER
+    data_type: VARCHAR
+    description: Gold / Silver / Bronze reliability classification.
+  time_dimensions:
+  - name: CREATED_DT
+    expr: CREATED_DT
+    data_type: DATE
+  facts:
+  - name: OTD_TARGET_PCT
+    expr: OTD_TARGET_PCT
+    data_type: NUMBER
+    description: Supplier's contracted on-time delivery target percentage.
+  - name: LEAD_TIME_DAYS_AVG
+    expr: LEAD_TIME_DAYS_AVG
+    data_type: NUMBER
+    description: Average quoted lead time in days.
+- name: PARTS
+  base_table:
+    database: SUPPLY_CHAIN_DEMO
+    schema: CORE
+    table: PARTS
+  primary_key:
+    columns:
+    - PART_ID
+  dimensions:
+  - name: PART_ID
+    expr: PART_ID
+    data_type: VARCHAR
+  - name: PART_NAME
+    expr: PART_NAME
+    data_type: VARCHAR
+  - name: PART_CATEGORY
+    expr: PART_CATEGORY
+    data_type: VARCHAR
+    synonyms:
+    - category
+  - name: SUPPLIER_ID
+    expr: SUPPLIER_ID
+    data_type: VARCHAR
+  - name: UOM
+    expr: UOM
+    data_type: VARCHAR
+  facts:
+  - name: UNIT_COST
+    expr: UNIT_COST
+    data_type: NUMBER
+  - name: WEIGHT_KG
+    expr: WEIGHT_KG
+    data_type: NUMBER
+- name: PLANTS
+  base_table:
+    database: SUPPLY_CHAIN_DEMO
+    schema: CORE
+    table: PLANTS
+  primary_key:
+    columns:
+    - PLANT_ID
+  dimensions:
+  - name: PLANT_ID
+    expr: PLANT_ID
+    data_type: VARCHAR
+  - name: PLANT_NAME
+    expr: PLANT_NAME
+    data_type: VARCHAR
+  - name: PLANT_REGION
+    expr: PLANT_REGION
+    data_type: VARCHAR
+    synonyms:
+    - region
+  - name: PLANT_COUNTRY
+    expr: PLANT_COUNTRY
+    data_type: VARCHAR
+  - name: PLANT_CITY
+    expr: PLANT_CITY
+    data_type: VARCHAR
+- name: SHIPMENTS
+  base_table:
+    database: SUPPLY_CHAIN_DEMO
+    schema: CORE
+    table: SHIPMENTS
+  primary_key:
+    columns:
+    - SHIPMENT_ID
+  dimensions:
+  - name: SHIPMENT_ID
+    expr: SHIPMENT_ID
+    data_type: VARCHAR
+  - name: SUPPLIER_ID
+    expr: SUPPLIER_ID
+    data_type: VARCHAR
+  - name: PART_ID
+    expr: PART_ID
+    data_type: VARCHAR
+  - name: PLANT_ID
+    expr: PLANT_ID
+    data_type: VARCHAR
+  - name: CARRIER
+    expr: CARRIER
+    data_type: VARCHAR
+    synonyms:
+    - logistics provider
+    - freight carrier
+  - name: STATUS
+    expr: STATUS
+    data_type: VARCHAR
+  time_dimensions:
+  - name: SHIP_DT
+    expr: SHIP_DT
+    data_type: DATE
+  - name: CONFIRMED_DELIVERY_DT
+    expr: CONFIRMED_DELIVERY_DT
+    data_type: DATE
+  - name: ACTUAL_DELIVERY_DT
+    expr: ACTUAL_DELIVERY_DT
+    data_type: DATE
+  facts:
+  - name: FREIGHT_COST_PER_UNIT
+    expr: FREIGHT_COST_PER_UNIT
+    data_type: NUMBER
+  - name: DUTY_COST_PER_UNIT
+    expr: DUTY_COST_PER_UNIT
+    data_type: NUMBER
+  - name: QUANTITY_SHIPPED
+    expr: QUANTITY_SHIPPED
+    data_type: NUMBER
+    description: Units shipped.
+  - name: IS_ON_TIME
+    expr: CASE WHEN ABS(DATEDIFF('day', CONFIRMED_DELIVERY_DT, ACTUAL_DELIVERY_DT)) <= 1 THEN 1 ELSE 0 END
+    data_type: NUMBER
+    description: 1 if delivered within 1 day of confirmed date, else 0.
+- name: INVENTORY_SNAPSHOTS
+  base_table:
+    database: SUPPLY_CHAIN_DEMO
+    schema: CORE
+    table: INVENTORY_SNAPSHOTS
+  primary_key:
+    columns:
+    - SNAPSHOT_ID
+  dimensions:
+  - name: SNAPSHOT_ID
+    expr: SNAPSHOT_ID
+    data_type: VARCHAR
+  - name: PART_ID
+    expr: PART_ID
+    data_type: VARCHAR
+  - name: PLANT_ID
+    expr: PLANT_ID
+    data_type: VARCHAR
+  time_dimensions:
+  - name: SNAPSHOT_DT
+    expr: SNAPSHOT_DT
+    data_type: DATE
+  facts:
+  - name: QTY_ON_HAND
+    expr: QTY_ON_HAND
+    data_type: NUMBER
+  - name: AVG_DAILY_DEMAND_QTY
+    expr: AVG_DAILY_DEMAND_QTY
+    data_type: NUMBER
+- name: ORDERS
+  base_table:
+    database: SUPPLY_CHAIN_DEMO
+    schema: CORE
+    table: ORDERS
+  primary_key:
+    columns:
+    - ORDER_ID
+  dimensions:
+  - name: ORDER_ID
+    expr: ORDER_ID
+    data_type: VARCHAR
+  - name: CUSTOMER_ID
+    expr: CUSTOMER_ID
+    data_type: VARCHAR
+  - name: CUSTOMER_NAME
+    expr: CUSTOMER_NAME
+    data_type: VARCHAR
+    synonyms:
+    - customer
+  - name: PLANT_ID
+    expr: PLANT_ID
+    data_type: VARCHAR
+  - name: PART_ID
+    expr: PART_ID
+    data_type: VARCHAR
+  - name: ORDER_STATUS
+    expr: ORDER_STATUS
+    data_type: VARCHAR
+  time_dimensions:
+  - name: ORDER_DT
+    expr: ORDER_DT
+    data_type: DATE
+  - name: REQUESTED_DELIVERY_DT
+    expr: REQUESTED_DELIVERY_DT
+    data_type: DATE
+  - name: FULFILLED_DT
+    expr: FULFILLED_DT
+    data_type: DATE
+  facts:
+  - name: UNIT_PRICE
+    expr: UNIT_PRICE
+    data_type: NUMBER
+  - name: QUANTITY_ORDERED
+    expr: QUANTITY_ORDERED
+    data_type: NUMBER
+    description: Units ordered.
+  - name: QUANTITY_FULFILLED
+    expr: QUANTITY_FULFILLED
+    data_type: NUMBER
+    description: Units actually fulfilled.
+  - name: IS_OTIF
+    expr: CASE WHEN ABS(DATEDIFF('day', REQUESTED_DELIVERY_DT, FULFILLED_DT)) <= 1 AND QUANTITY_FULFILLED >= QUANTITY_ORDERED
+      THEN 1 ELSE 0 END
+    data_type: NUMBER
+    description: 1 if the order was both on time and in full, else 0.
+relationships:
+- name: SHIPMENTS_TO_SUPPLIERS
+  left_table: SHIPMENTS
+  right_table: SUPPLIERS
+  join_type: left_outer
+  relationship_type: many_to_one
+  relationship_columns:
+  - left_column: SUPPLIER_ID
+    right_column: SUPPLIER_ID
+- name: SHIPMENTS_TO_PLANTS
+  left_table: SHIPMENTS
+  right_table: PLANTS
+  join_type: left_outer
+  relationship_type: many_to_one
+  relationship_columns:
+  - left_column: PLANT_ID
+    right_column: PLANT_ID
+- name: SHIPMENTS_TO_PARTS
+  left_table: SHIPMENTS
+  right_table: PARTS
+  join_type: left_outer
+  relationship_type: many_to_one
+  relationship_columns:
+  - left_column: PART_ID
+    right_column: PART_ID
+- name: ORDERS_TO_PLANTS
+  left_table: ORDERS
+  right_table: PLANTS
+  join_type: left_outer
+  relationship_type: many_to_one
+  relationship_columns:
+  - left_column: PLANT_ID
+    right_column: PLANT_ID
+- name: ORDERS_TO_PARTS
+  left_table: ORDERS
+  right_table: PARTS
+  join_type: left_outer
+  relationship_type: many_to_one
+  relationship_columns:
+  - left_column: PART_ID
+    right_column: PART_ID
+- name: INVENTORY_SNAPSHOTS_TO_PARTS
+  left_table: INVENTORY_SNAPSHOTS
+  right_table: PARTS
+  join_type: left_outer
+  relationship_type: many_to_one
+  relationship_columns:
+  - left_column: PART_ID
+    right_column: PART_ID
+- name: INVENTORY_SNAPSHOTS_TO_PLANTS
+  left_table: INVENTORY_SNAPSHOTS
+  right_table: PLANTS
+  join_type: left_outer
+  relationship_type: many_to_one
+  relationship_columns:
+  - left_column: PLANT_ID
+    right_column: PLANT_ID
+- name: PARTS_TO_SUPPLIERS
+  left_table: PARTS
+  right_table: SUPPLIERS
+  join_type: left_outer
+  relationship_type: many_to_one
+  relationship_columns:
+  - left_column: SUPPLIER_ID
+    right_column: SUPPLIER_ID
+verified_queries:
+- name: otd_by_supplier
+  question: What is the on-time delivery rate by supplier?
+  sql: SELECT s.SUPPLIER_NAME, AVG(CASE WHEN ABS(DATEDIFF(DAY, sh.CONFIRMED_DELIVERY_DT, sh.ACTUAL_DELIVERY_DT)) <= 1 THEN
+    1 ELSE 0 END) * 100 AS otd_pct FROM shipments AS sh JOIN suppliers AS s ON sh.SUPPLIER_ID = s.SUPPLIER_ID GROUP BY s.SUPPLIER_NAME
+    ORDER BY otd_pct DESC
+  verified_at: 1791015523
+  verified_by: Semantic Model Generator
+- name: overall_fill_rate
+  question: What is the overall fill rate?
+  sql: SELECT SUM(o.QUANTITY_FULFILLED) / SUM(o.QUANTITY_ORDERED) * 100 AS fill_rate_pct FROM orders AS o
+  verified_at: 1791015523
+  verified_by: Semantic Model Generator
+- name: doi_by_category
+  question: What are the days of inventory by part category?
+  sql: SELECT p.PART_CATEGORY, AVG(inv.QTY_ON_HAND) / AVG(inv.AVG_DAILY_DEMAND_QTY) AS days_of_inventory FROM inventory_snapshots
+    AS inv JOIN parts AS p ON inv.PART_ID = p.PART_ID GROUP BY p.PART_CATEGORY
+  verified_at: 1791015523
+  verified_by: Semantic Model Generator
+- name: landed_cost_by_supplier
+  question: What is the average landed cost per unit by supplier?
+  sql: SELECT s.SUPPLIER_NAME, AVG(p.UNIT_COST + sh.FREIGHT_COST_PER_UNIT + sh.DUTY_COST_PER_UNIT) AS landed_cost_per_unit
+    FROM shipments AS sh JOIN parts AS p ON sh.PART_ID = p.PART_ID JOIN suppliers AS s ON sh.SUPPLIER_ID = s.SUPPLIER_ID GROUP
+    BY s.SUPPLIER_NAME ORDER BY landed_cost_per_unit DESC
+  verified_at: 1791015523
+  verified_by: Semantic Model Generator
+- name: otif_by_region
+  question: What is the OTIF performance by plant region?
+  sql: SELECT pl.PLANT_REGION, AVG(CASE WHEN ABS(DATEDIFF(DAY, o.REQUESTED_DELIVERY_DT, o.FULFILLED_DT)) <= 1 AND o.QUANTITY_FULFILLED
+    >= o.QUANTITY_ORDERED THEN 1 ELSE 0 END) * 100 AS otif_pct FROM orders AS o JOIN plants AS pl ON o.PLANT_ID = pl.PLANT_ID
+    GROUP BY pl.PLANT_REGION
+  verified_at: 1791015523
+  verified_by: Semantic Model Generator
+metrics:
+- name: OTD_PCT
+  synonyms:
+  - OTD
+  - on-time delivery rate
+  - on-time delivery percentage
+  description: 'On-Time Delivery %: percentage of shipments delivered within 1 day of confirmed date.'
+  expr: AVG(SHIPMENTS.IS_ON_TIME) * 100
+  default_aggregation: avg
+- name: FILL_RATE_PCT
+  synonyms:
+  - fill rate
+  - order fill rate
+  description: 'Fill Rate %: volume-weighted SUM(quantity_fulfilled) / SUM(quantity_ordered) * 100.'
+  expr: SUM(ORDERS.QUANTITY_FULFILLED) / SUM(ORDERS.QUANTITY_ORDERED) * 100
+  default_aggregation: avg
+- name: DAYS_OF_INVENTORY
+  synonyms:
+  - DOI
+  - inventory days
+  - days of supply
+  description: 'Days of Inventory: AVG(qty_on_hand) / AVG(avg_daily_demand_qty).'
+  expr: AVG(INVENTORY_SNAPSHOTS.QTY_ON_HAND) / AVG(INVENTORY_SNAPSHOTS.AVG_DAILY_DEMAND_QTY)
+  default_aggregation: avg
+- name: LANDED_COST_PER_UNIT
+  synonyms:
+  - landed cost
+  - total landed cost
+  description: 'Landed Cost per unit: AVG(unit_cost + freight + duty).'
+  expr: AVG(PARTS.UNIT_COST + SHIPMENTS.FREIGHT_COST_PER_UNIT + SHIPMENTS.DUTY_COST_PER_UNIT)
+  default_aggregation: avg
+- name: OTIF_PCT
+  synonyms:
+  - OTIF
+  - on time in full
+  description: 'OTIF %: percentage of orders delivered on time and in full.'
+  expr: AVG(ORDERS.IS_OTIF) * 100
+  default_aggregation: avg

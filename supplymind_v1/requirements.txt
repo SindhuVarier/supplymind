@@ -1,0 +1,7 @@
+# Local dev only -- for running/testing the data generator and validating the
+# YAML on your own machine. The Streamlit app and stored procedure run inside
+# Snowflake and don't need these installed locally; Snowflake provides
+# streamlit, snowflake-snowpark-python, and _snowflake at runtime.
+faker>=40.0
+pandas>=2.2
+pyyaml>=6.0

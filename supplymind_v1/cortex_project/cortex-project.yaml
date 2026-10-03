@@ -1,0 +1,7 @@
+version: 1
+artifacts:
+  - path: SUPPLY_CHAIN_UNIFIED.sv.yaml
+    type: semantic_view
+    targets:
+      default:
+        object: SUPPLY_CHAIN_DEMO.CORE.SUPPLY_CHAIN_UNIFIED

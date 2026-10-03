@@ -1,0 +1,6 @@
+version: 1
+artifacts:
+  - path: supply_chain_agent_eval_v2.eval.yaml
+    type: eval_config
+  - path: supply_chain_agent_eval_v3.eval.yaml
+    type: eval_config

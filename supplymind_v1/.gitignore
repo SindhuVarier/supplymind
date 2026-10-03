@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated data (regenerate with data_generation/generate_supply_chain_data.py)
+data_generation/output/*.csv
+
+# Snowflake credentials / local connection config, if ever added
+.snowflake/
+*.pem
+*.p8
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
